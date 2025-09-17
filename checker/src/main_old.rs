@@ -27,8 +27,7 @@ fn index_to_seed_bytes(mut idx: u64, out: &mut [u8; MAX_SEED_LENGTH]) {
 }
 
 fn test_passes_for_seed_bytes(seed_bytes: &[u8; MAX_SEED_LENGTH], items_len: i32) -> bool {
-    let seed_str = std::str::from_utf8(seed_bytes).unwrap();
-    let mut random = Random::new(seed_str);
+    let mut random = Random::new(&seed_bytes[..]);
     true
 }
 

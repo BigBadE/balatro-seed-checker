@@ -1,4 +1,6 @@
 use cust::prelude::*;
+use rayon::prelude::*;
+use common::random::{Random, IDS_LEN};
 use std::error::Error;
 use std::time::Instant;
 
@@ -6,6 +8,44 @@ use std::time::Instant;
 const NUMBERS_LEN: usize = 100_000;
 
 static PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/gpu_driver.ptx"));
+
+const CHARSET: [u8; 36] = *b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+#[inline(always)]
+fn encode_seed_bytes(mut n: u64, out: &mut [u8; 8]) -> (usize, usize) {
+    // Matches gpu_driver::encode_seed: base-36, no leading symbols
+    let mut end = out.len();
+    if n == 0 {
+        end -= 1;
+        out[end] = CHARSET[0];
+        return (end, 1);
+    }
+    while n > 0 && end > 0 {
+        let rem = (n % 36) as usize;
+        end -= 1;
+        out[end] = CHARSET[rem];
+        n /= 36;
+    }
+    let len = out.len() - end;
+    (end, len)
+}
+
+/// CPU-parallel mirror of gpu_driver::iterate_seeds using rayon.
+/// Returns the sum of per-item values (mirrors current GPU: rng.hashed_seed per seed).
+pub fn iterate_seeds_cpu(start: u64, total: u64) -> f64 {
+    (0..total)
+        .into_par_iter()
+        .map(|i| {
+            let idx = start + i;
+            let mut seed_buf = [0u8; 8];
+            let (off, len) = encode_seed_bytes(idx, &mut seed_buf);
+            let rng = Random::new(&seed_buf[off..off + len]);
+            // Mirror current GPU behavior (summing hashed_seed). If the GPU switches back to get_node,
+            // change this to: rng.get_node((i as usize) % IDS_LEN)
+            rng.hashed_seed
+        })
+        .sum()
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     let start_time = Instant::now();
@@ -37,7 +77,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let checksums_buf = checksums.as_slice().as_dbuf()?;
 
     let start: u64 = 0;
-    let total: u64 = 1_000_000_000; // first 100 million seeds as requested
+    let total: u64 = 10_000_000_000;
+    //let total: u64 = 36_u64.pow(8);
 
     unsafe {
         launch!(

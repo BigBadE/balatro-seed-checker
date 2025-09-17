@@ -5,6 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/checker/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/gpu_driver/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/common/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/checker/benches" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
