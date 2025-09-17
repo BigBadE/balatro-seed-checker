@@ -1,11 +1,10 @@
 use cust::prelude::*;
 use rayon::prelude::*;
-use common::random::{Random, IDS_LEN};
+use common::random::Random;
 use std::error::Error;
 use std::time::Instant;
 
-/// How many numbers to generate and add together.
-const NUMBERS_LEN: usize = 100_000;
+//
 
 static PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/gpu_driver.ptx"));
 

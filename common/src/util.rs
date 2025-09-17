@@ -14,6 +14,13 @@ impl Default for LuaRandom {
 
 impl LuaRandom {
     #[inline(always)]
+    pub fn empty() -> Self {
+        // Construct without seeding/warm-up; suitable as a placeholder
+        // when the RNG will be reseeded immediately before use.
+        Self { state: [0; 4] }
+    }
+
+    #[inline(always)]
     pub fn new(seed: f64) -> Self {
         let mut returning = Self {
             state: [0; 4],

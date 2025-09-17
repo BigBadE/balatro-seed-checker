@@ -1,10 +1,15 @@
 use crate::util::{pseudohash_bytes, round13, LuaRandom};
+use libm::{floor, fma};
+use core::mem::MaybeUninit;
 
 pub struct Random<'a> {
     pub seed: &'a [u8],
     pub hashed_seed: f64,
     pub lua_random: LuaRandom,
-    pub nodes: [f64; IDS_LEN],
+    // Lazily initialized node values to avoid eager memset/fill on construction.
+    // Use a compact bitset to track which indices are initialized.
+    nodes: [MaybeUninit<f64>; IDS_LEN],
+    init_mask: [u64; (IDS_LEN + 63) / 64],
 }
 
 impl Default for Random<'_> {
@@ -13,12 +18,13 @@ impl Default for Random<'_> {
             seed: &[],
             hashed_seed: 0.0,
             lua_random: LuaRandom::default(),
-            nodes: [f64::NAN; IDS_LEN],
+            nodes: [MaybeUninit::<f64>::uninit(); IDS_LEN],
+            init_mask: [0u64; (IDS_LEN + 63) / 64],
         }
     }
 }
 
-pub const RESAMPLE_IDS_LEN: usize = 5;
+pub const RESAMPLE_IDS_LEN: usize = 1000;
 pub const IDS_LEN: usize = 1 * RESAMPLE_IDS_LEN;
 
 pub enum RandIds {
@@ -42,28 +48,48 @@ pub trait ItemChoice {
 impl<'a> Random<'a> {
     #[inline(always)]
     pub fn new(seed: &'a [u8]) -> Self {
-        Self { hashed_seed: pseudohash_bytes([seed]), seed, ..Self::default() }
+        // Avoid Default's eager array setup to keep construction cheap.
+        Self {
+            seed,
+            hashed_seed: pseudohash_bytes([seed]),
+            lua_random: LuaRandom::empty(),
+            nodes: [MaybeUninit::<f64>::uninit(); IDS_LEN],
+            init_mask: [0u64; (IDS_LEN + 63) / 64],
+        }
     }
 
     #[inline(always)]
     pub fn get_node(&mut self, id: usize) -> f64 {
-        if self.nodes[id].is_nan() {
+        debug_assert!(id < IDS_LEN);
+        let word = id >> 6;
+        let bit = 1u64 << (id & 63);
+        if (self.init_mask[word] & bit) == 0 {
+            // Initialize lazily
             let res = id % RESAMPLE_IDS_LEN;
             let grp = id / RESAMPLE_IDS_LEN;
-            if res != 0 {
+            let val: f64 = if res != 0 {
                 let mut buf = [0u8; 20];
-                self.nodes[id] = pseudohash_bytes([
+                pseudohash_bytes([
                     node_mapping(self.seed, grp),
                     b"_resample",
                     Self::itoa_usize_bytes(&mut buf, res),
                     self.seed,
-                ]);
+                ])
             } else {
-                self.nodes[id] = pseudohash_bytes([node_mapping(self.seed, id), self.seed]);
-            }
+                pseudohash_bytes([node_mapping(self.seed, id), self.seed])
+            };
+            // Write initialized value and set bit
+            unsafe { self.nodes.get_unchecked_mut(id).write(val) };
+            self.init_mask[word] |= bit;
         }
-        self.nodes[id] = round13((self.nodes[id] * 1.72431234 + 2.134453429141) % 1.0);
-        (self.nodes[id] + self.hashed_seed) / 2.0
+        // Safe: guarded by init_mask bit above
+        let current = unsafe { *self.nodes.get_unchecked(id).assume_init_ref() };
+        // Use fused multiply-add and fast fractional part extraction to avoid costly `% 1.0`.
+        let t = fma(current, 1.72431234, 2.134453429141);
+        let advanced = round13(t - floor(t));
+        // Update stored node value
+        unsafe { self.nodes.get_unchecked_mut(id).write(advanced) };
+        (advanced + self.hashed_seed) / 2.0
     }
 
     #[inline(always)]
@@ -88,7 +114,10 @@ impl<'a> Random<'a> {
         if item.locked() || item.retry() {
             for resample in 2usize..RESAMPLE_IDS_LEN {
                 // Target string should be: "{id}_resample{resample}"
-                self.lua_random = LuaRandom::new(self.get_node(id + resample));
+                // Stay within the same group as `id` to avoid out-of-bounds indexing.
+                // Group base is the start index of the group containing `id`.
+                let group_base = id - (id % RESAMPLE_IDS_LEN);
+                self.lua_random = LuaRandom::new(self.get_node(group_base + resample));
                 item = &items[self.lua_random.randint(0, items.len() as i32 - 1) as usize];
                 if !item.retry() && !item.locked() {
                     return item;

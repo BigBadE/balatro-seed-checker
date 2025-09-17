@@ -1,5 +1,5 @@
 use cuda_std::prelude::*;
-use common::random::{Random, IDS_LEN};
+use common::random::Random;
 
 const CHARSET: [u8; 36] = *b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
@@ -43,7 +43,7 @@ pub unsafe fn iterate_seeds(start: u64, total: u64, out_checksums: *mut f64) {
         let idx = start + i;
         let (start_off, len) = encode_seed(idx, &mut seed_buf);
         // Use raw ASCII bytes directly
-        let mut rng = Random::new(&seed_buf[start_off..start_off + len]);
+        let rng = Random::new(&seed_buf[start_off..start_off + len]);
         // Accumulate hashed_seed to avoid being optimized out
        // sum += rng.get_node((i as usize) % IDS_LEN);
         sum += rng.hashed_seed;
