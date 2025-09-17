@@ -1,0 +1,11 @@
+[package]
+name = "balatro-seed-checker-gpu-driver"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cuda_std = { git = "https://github.com/Rust-GPU/rust-cuda" }
+common = { path = "../common" }

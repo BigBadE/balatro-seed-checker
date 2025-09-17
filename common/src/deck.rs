@@ -1,16 +1,17 @@
-use std::fmt::Display;
-use std::mem;
+use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use core::fmt::Display;
 use strum::IntoEnumIterator;
 use crate::items::{Card, CardSuits, CardTypes, Editions, EnhancementTypes, SealTypes};
 use crate::random::Random;
-use crate::util::pseudohash;
 
 pub struct Deck {
     pub cards: Vec<Card>,
 }
 
+#[cfg(feature = "std")]
 impl Display for Deck {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.cards.iter().map(|card| format!("{card}")).collect::<Vec<_>>().join(", "))
     }
 }
@@ -19,8 +20,9 @@ pub enum ShuffleSeed {
     NewRound
 }
 
+#[cfg(feature = "std")]
 impl Display for ShuffleSeed {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ShuffleSeed::NewRound => write!(f, "nr"),
         }

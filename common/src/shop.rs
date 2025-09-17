@@ -1,11 +1,14 @@
-use std::fmt::Display;
+#[cfg(feature = "std")]
+use core::fmt::Display;
+
 use crate::items::{Card, Joker, Pack, Planets, RandomSource, Spectral, Tarots, Vouchers};
+#[cfg(feature = "std")]
 use crate::pools::{next_joker, next_planet, next_spectral, next_tarot};
 use crate::random::Random;
 
 pub struct Shop<'a> {
     pub ante: i32,
-    pub random: &'a mut Random,
+    pub random: &'a mut Random<'a>,
     pub rates: ShopRates,
 }
 
@@ -44,8 +47,9 @@ pub enum ShopItem {
     Card(Card)
 }
 
+#[cfg(feature = "std")]
 impl Display for ShopItem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ShopItem::Joker(joker) => write!(f, "{}", joker),
             ShopItem::Tarot(tarot) => write!(f, "{:?}", tarot),
@@ -58,23 +62,25 @@ impl Display for ShopItem {
 
 pub struct ShopState<const N: usize> {
     pub refreshable: [ShopItem; N],
-    pub vouchers: Vec<Vouchers>,
-    pub packs: Vec<Pack>,
+    pub vouchers: [Vouchers; 3],
+    pub packs: [Pack; 2],
 }
 
 impl Shop<'_> {
-    pub fn new(ante: i32, rates: ShopRates, random: &mut Random) -> Shop {
+    pub fn new<'a>(ante: i32, rates: ShopRates, random: &'a mut Random<'a>) -> Shop<'a> {
         Shop { ante, rates, random }
     }
 
+    #[cfg(feature = "std")]
     pub fn generate<const N: usize>(&mut self) -> ShopState<N> {
         ShopState {
             refreshable: (0..N).map(|_| self.next_shop_item()).collect::<Vec<ShopItem>>().try_into().unwrap(),
-            vouchers: vec![],
-            packs: vec![],
+            vouchers: [Vouchers::Blank; 3],
+            packs: [Pack::Buffoon; 2],
         }
     }
 
+    #[cfg(feature = "std")]
     fn next_shop_item(&mut self) -> ShopItem {
         let mut cdt_poll = self.random.random(&format!("cdt{}", self.ante)) * self.rates.total_rate();
 

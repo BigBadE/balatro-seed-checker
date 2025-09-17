@@ -1,8 +1,13 @@
+#[cfg(feature = "std")]
 use strum::IntoEnumIterator;
-use crate::items::{Editions, Joker, JokerRarity, JokerTypes, Planets, RandomSource, Spectral, Tarots};
+use crate::items::{JokerTypes, RandomSource, Spectral};
+#[cfg(feature = "std")]
+use crate::items::{Editions, Joker, JokerRarity, Planets, Tarots};
+
 use crate::items::JokerTypes::*;
 use crate::random::Random;
 
+#[cfg(feature = "std")]
 pub fn next_joker(random: &mut Random, source: RandomSource, ante: i32, has_stickers: bool) -> Joker {
     // Get rarity
     let rarity = match source {
@@ -39,13 +44,13 @@ pub fn next_joker(random: &mut Random, source: RandomSource, ante: i32, has_stic
     };
 
     // Get next joker stickers
-    let stickers = vec![];
+    let stickers = vec![false; 3];
     if has_stickers {
+        /* TODO stickers
         let _stickers = random.random(&format!("{ante}{}", match source {
             RandomSource::BuffonPack => "packetper",
             _ => "etperpoll"
         }));
-        /* TODO stickers
         if (stickerPoll > 0.7 && (params.stake == "Black Stake" || params.stake == "Blue Stake" || params.stake == "Purple Stake" || params.stake == "Orange Stake" || params.stake == "Gold Stake")) {
             if (joker != "Gros Michel" && joker != "Ice Cream" && joker != "Cavendish" && joker != "Luchador"
                 && joker != "Turtle Bean" && joker != "Diet Cola" && joker != "Popcorn" && joker != "Ramen"
@@ -75,6 +80,7 @@ pub fn next_joker(random: &mut Random, source: RandomSource, ante: i32, has_stic
     }
 }
 
+#[cfg(feature = "std")]
 pub fn next_tarot(random: &mut Random, source: RandomSource, ante: i32, soulable: bool) -> Tarots {
     if soulable && random.random(&format!("soul_Tarot{ante}")) > 0.997 {
         return Tarots::TheSoul;
@@ -82,6 +88,7 @@ pub fn next_tarot(random: &mut Random, source: RandomSource, ante: i32, soulable
     *random.rand_choice(&format!("Tarot{source}{ante}"), Tarots::iter().collect::<Vec<_>>().as_slice())
 }
 
+#[cfg(feature = "std")]
 pub fn next_planet(random: &mut Random, source: RandomSource, ante: i32, soulable: bool) -> Planets {
     if soulable && random.random(&format!("soul_Planet{ante}")) > 0.997 {
         return Planets::BlackHole;
@@ -89,7 +96,7 @@ pub fn next_planet(random: &mut Random, source: RandomSource, ante: i32, soulabl
     *random.rand_choice(&format!("Planet{source}{ante}"), Planets::iter().collect::<Vec<_>>().as_slice())
 }
 
-pub fn next_spectral(random: &mut Random, source: RandomSource, ante: i32, soulable: bool) -> Spectral {
+pub fn next_spectral(_random: &mut Random, _source: RandomSource, _ante: i32, _soulable: bool) -> Spectral {
     todo!()
 }
 

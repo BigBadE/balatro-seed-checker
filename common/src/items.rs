@@ -1,7 +1,7 @@
-use std::fmt;
-use std::fmt::Display;
-use strum::EnumIter;
 use crate::random::ItemChoice;
+use strum::EnumIter;
+#[cfg(feature = "std")]
+use core::fmt::{self, Display};
 
 pub enum RandomSource {
     Shop,
@@ -12,7 +12,8 @@ pub enum RandomSource {
     UncommonTag,
 }
 
-impl fmt::Display for RandomSource {
+#[cfg(feature = "std")]
+impl Display for RandomSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RandomSource::Shop => write!(f, "sho"),
@@ -42,7 +43,7 @@ pub enum JokerRarity {
     Legendary,
 }
 
-#[derive(Debug)]
+#[derive(Debug, EnumIter)]
 pub enum JokerStickers {
     Eternal,
     Perishable,
@@ -54,14 +55,26 @@ pub struct Joker {
     pub joker: JokerTypes,
     pub rarity: JokerRarity,
     pub edition: Editions,
-    pub stickers: Vec<JokerStickers>,
+    pub stickers: [bool; 3],
 }
 
+#[cfg(feature = "std")]
 impl Display for Joker {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}",
-               self.stickers.iter().map(|sticker| format!("{sticker:?}"))
-                   .collect::<Vec<String>>().join(" "))?;
+        write!(
+            f,
+            "{}",
+            self.stickers
+                .iter()
+                .zip(JokerStickers::iter())
+                .filter_map(|(added, sticker)| if *added {
+                    Some(format!("{sticker:?}"))
+                } else {
+                    None
+                })
+                .collect::<Vec<String>>()
+                .join(" ")
+        )?;
 
         if self.edition != Editions::None {
             write!(f, " ({:?})", self.edition)?;
@@ -71,8 +84,13 @@ impl Display for Joker {
     }
 }
 
-#[derive(Debug)]
-pub enum Pack {}
+#[derive(Debug, Copy, Clone)]
+pub enum Pack {
+    Buffoon,
+    Arcana,
+    Spectral,
+    Planet
+}
 
 #[derive(Debug, EnumIter, Copy, Clone)]
 pub enum CardTypes {
@@ -131,6 +149,7 @@ pub struct Card {
     pub sort_id: usize,
 }
 
+#[cfg(feature = "std")]
 impl Display for Card {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.edition != Editions::None {
@@ -213,7 +232,7 @@ impl ItemChoice for Planets {
 #[derive(Debug)]
 pub enum Spectral {}
 
-#[derive(Debug, EnumIter)]
+#[derive(Debug, EnumIter, Copy, Clone)]
 pub enum Vouchers {
     Overstock,
     OverstockPlus,
@@ -256,11 +275,22 @@ impl ItemChoice for Vouchers {
 
     fn locked(&self) -> bool {
         match self {
-            Vouchers::OverstockPlus | Vouchers::Liquidation | Vouchers::RerollGlut | Vouchers::OmenGlobe |
-            Vouchers::Observatory | Vouchers::NachoTong | Vouchers::Recyclomancy | Vouchers::TarotTycoon |
-            Vouchers::PlanetTycoon | Vouchers::MoneyTree | Vouchers::Antimatter | Vouchers::Illusion |
-            Vouchers::Petroglyph | Vouchers::Retcon | Vouchers::Palette => true,
-            _ => false
+            Vouchers::OverstockPlus
+            | Vouchers::Liquidation
+            | Vouchers::RerollGlut
+            | Vouchers::OmenGlobe
+            | Vouchers::Observatory
+            | Vouchers::NachoTong
+            | Vouchers::Recyclomancy
+            | Vouchers::TarotTycoon
+            | Vouchers::PlanetTycoon
+            | Vouchers::MoneyTree
+            | Vouchers::Antimatter
+            | Vouchers::Illusion
+            | Vouchers::Petroglyph
+            | Vouchers::Retcon
+            | Vouchers::Palette => true,
+            _ => false,
         }
     }
 }
@@ -304,9 +334,12 @@ impl ItemChoice for Bosses {
 
     fn locked(&self) -> bool {
         match self {
-            Bosses::AmberAcorn | Bosses::CeruleanBell | Bosses::CrimsonHeart | Bosses::VerdantLeaf |
-            Bosses::VioletVessel => true,
-            _ => false
+            Bosses::AmberAcorn
+            | Bosses::CeruleanBell
+            | Bosses::CrimsonHeart
+            | Bosses::VerdantLeaf
+            | Bosses::VioletVessel => true,
+            _ => false,
         }
     }
 }

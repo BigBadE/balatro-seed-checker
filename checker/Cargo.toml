@@ -1,0 +1,14 @@
+[package]
+name = "balatro-seed-checker"
+version = "0.1.0"
+edition = "2024"
+
+build = "build.rs"
+
+[dependencies]
+rayon = "1.11.0"
+cust = "0.3.2"
+#common = { path = "../common", features = ["std"] }
+
+[build-dependencies]
+cuda_builder = { git = "https://github.com/Rust-GPU/rust-cuda" }
