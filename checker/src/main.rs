@@ -2,6 +2,7 @@ use cust::prelude::*;
 use rayon::prelude::*;
 use common::random::Random;
 use std::error::Error;
+use std::thread;
 use std::time::Instant;
 
 //
@@ -70,10 +71,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     let iter_grid_size: u32 = 4096; // fixed grid to bound output size
     let threads_per_grid = (iter_grid_size as usize) * (iter_block_size as usize);
 
+    thread::spawn(move || {
+        let start: u64 = 0;
+        let mut total: u64 = 1_000_000;
 
+        while total < 35u64.pow(8) {
+            let start_time = Instant::now();
+            iterate_seeds_cpu(start, total);
+            total *= 10;
+            println!(
+                "[CPU] iterate_seeds over {}: time={:?}",
+                total,
+                start_time.elapsed()
+            );
+        }
+    });
     let start: u64 = 0;
     let mut total: u64 = 1_000_000;
-    //let total: u64 = 35_u64.pow(8);
 
     while total < 35u64.pow(8) {
         // Output buffer for per-thread checksums
@@ -94,7 +108,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         checksums_buf.copy_to(&mut checksums)?;
         let checksum_sum: f64 = checksums.iter().copied().sum();
         println!(
-            "iterate_seeds over {}: grid={} block={} threads={} total={} checksum_sum={} time={:?}",
+            "[GPU] iterate_seeds over {}: grid={} block={} threads={} total={} checksum_sum={} time={:?}",
             total,
             iter_grid_size,
             iter_block_size,
