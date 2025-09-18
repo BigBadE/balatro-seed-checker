@@ -8,11 +8,11 @@ use std::time::Instant;
 
 static PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/gpu_driver.ptx"));
 
-const CHARSET: [u8; 36] = *b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const CHARSET: [u8; 35] = *b"ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789";
 
 #[inline(always)]
 fn encode_seed_bytes(mut n: u64, out: &mut [u8; 8]) -> (usize, usize) {
-    // Matches gpu_driver::encode_seed: base-36, no leading symbols
+    // Matches gpu_driver::encode_seed: base-35, no leading symbols
     let mut end = out.len();
     if n == 0 {
         end -= 1;
@@ -20,10 +20,10 @@ fn encode_seed_bytes(mut n: u64, out: &mut [u8; 8]) -> (usize, usize) {
         return (end, 1);
     }
     while n > 0 && end > 0 {
-        let rem = (n % 36) as usize;
+        let rem = (n % 35) as usize;
         end -= 1;
         out[end] = CHARSET[rem];
-        n /= 36;
+        n /= 35;
     }
     let len = out.len() - end;
     (end, len)
@@ -47,7 +47,6 @@ pub fn iterate_seeds_cpu(start: u64, total: u64) -> f64 {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let start_time = Instant::now();
     // initialize CUDA, this will pick the first available device and will
     // make a CUDA context from it.
     // We don't need the context for anything but it must be kept alive.
@@ -71,36 +70,41 @@ fn main() -> Result<(), Box<dyn Error>> {
     let iter_grid_size: u32 = 4096; // fixed grid to bound output size
     let threads_per_grid = (iter_grid_size as usize) * (iter_block_size as usize);
 
-    // Output buffer for per-thread checksums
-    let mut checksums = vec![0.0f64; threads_per_grid];
-    let checksums_buf = checksums.as_slice().as_dbuf()?;
 
     let start: u64 = 0;
-    let total: u64 = 10_000_000_000;
-    //let total: u64 = 36_u64.pow(8);
+    let mut total: u64 = 1_000_000;
+    //let total: u64 = 35_u64.pow(8);
 
-    unsafe {
-        launch!(
-            iterate<<<iter_grid_size, iter_block_size, 0, stream>>>(
-                start,
-                total,
-                checksums_buf.as_device_ptr(),
-            )
-        )?;
+    while total < 35u64.pow(8) {
+        // Output buffer for per-thread checksums
+        let mut checksums = vec![0.0f64; threads_per_grid];
+        let checksums_buf = checksums.as_slice().as_dbuf()?;
+        let start_time = Instant::now();
+        unsafe {
+            launch!(
+                iterate<<<iter_grid_size, iter_block_size, 0, stream>>>(
+                    start,
+                    total,
+                    checksums_buf.as_device_ptr(),
+                )
+            )?;
+        }
+
+        stream.synchronize()?;
+        checksums_buf.copy_to(&mut checksums)?;
+        let checksum_sum: f64 = checksums.iter().copied().sum();
+        println!(
+            "iterate_seeds over {}: grid={} block={} threads={} total={} checksum_sum={} time={:?}",
+            total,
+            iter_grid_size,
+            iter_block_size,
+            threads_per_grid,
+            total,
+            checksum_sum,
+            start_time.elapsed()
+        );
+        total *= 10;
     }
-
-    stream.synchronize()?;
-    checksums_buf.copy_to(&mut checksums)?;
-    let checksum_sum: f64 = checksums.iter().copied().sum();
-    println!(
-        "iterate_seeds: grid={} block={} threads={} total={} checksum_sum={} time={:?}",
-        iter_grid_size,
-        iter_block_size,
-        threads_per_grid,
-        total,
-        checksum_sum,
-        start_time.elapsed()
-    );
 
     Ok(())
 }

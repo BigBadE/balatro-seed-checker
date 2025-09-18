@@ -20,9 +20,9 @@ pub const SEED_CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 fn index_to_seed_bytes(mut idx: u64, out: &mut [u8; MAX_SEED_LENGTH]) {
     // little-endian (lowest digit first) then reverse to produce human-readable
     for i in (0..MAX_SEED_LENGTH).rev() {
-        let digit = (idx % 36) as usize;
+        let digit = (idx % 35) as usize;
         out[i] = SEED_CHARSET[digit];
-        idx /= 36;
+        idx /= 35;
     }
 }
 
