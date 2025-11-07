@@ -10,6 +10,41 @@ pub enum RandomSource {
     Wraith,
     RareTag,
     UncommonTag,
+    Arcana,
+    Celestial,
+}
+
+#[derive(Debug, EnumIter, Copy, Clone)]
+pub enum Tags {
+    UncommonTag,
+    RareTag,
+    NegativeTag,
+    FoilTag,
+    HolographicTag,
+    PolychromeTag,
+    InvestmentTag,
+    VoucherTag,
+    BossTag,
+    StandardTag,
+    CharmTag,
+    MeteorTag,
+    BuffoonTag,
+    HandyTag,
+    GarbageTag,
+    EtherealTag,
+    CouponTag,
+    DoubleTag,
+    JuggleTag,
+    D6Tag,
+    TopUpTag,
+    SpeedTag,
+    OrbitalTag,
+    EconomyTag,
+}
+
+impl ItemChoice for Tags {
+    fn retry(&self) -> bool { false }
+    fn locked(&self) -> bool { false }
 }
 
 #[cfg(feature = "std")]
@@ -22,6 +57,8 @@ impl Display for RandomSource {
             RandomSource::RareTag => write!(f, "rta"),
             RandomSource::UncommonTag => write!(f, "uta"),
             RandomSource::Soul => write!(f, "sou"),
+            RandomSource::Arcana => write!(f, "ar1"),
+            RandomSource::Celestial => write!(f, "pl1"),
         }
     }
 }
@@ -90,6 +127,11 @@ pub enum Pack {
     Arcana,
     Spectral,
     Planet
+}
+
+impl ItemChoice for Pack {
+    fn retry(&self) -> bool { false }
+    fn locked(&self) -> bool { false }
 }
 
 #[derive(Debug, EnumIter, Copy, Clone)]
@@ -189,7 +231,6 @@ pub enum Tarots {
     TheSun,
     Judgement,
     TheWorld,
-    TheSoul,
 }
 
 impl ItemChoice for Tarots {
@@ -216,7 +257,6 @@ pub enum Planets {
     PlanetX,
     Ceres,
     Eris,
-    BlackHole,
 }
 
 impl ItemChoice for Planets {
@@ -344,7 +384,7 @@ impl ItemChoice for Bosses {
     }
 }
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Debug, EnumIter, Copy, Clone, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub enum JokerTypes {
     // Common jokers
     Joker,

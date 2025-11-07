@@ -1,9 +1,9 @@
-use libm::{floor, nextafter, fma};
+use libm::{floor, fma};
 use core::f64::consts::{PI, E};
 
 #[derive(Debug)]
 pub struct LuaRandom {
-    state: [u64; 4],
+    state: [i128; 4],
 }
 
 impl Default for LuaRandom {
@@ -31,11 +31,12 @@ impl LuaRandom {
             let m = 1u64 << (r & 255);
             r >>= 8;
             d = d * PI + E;
-            let mut ulong_val = d.to_bits();
+            // Interpret the f64's little-endian byte layout as u64, matching JS Uint8Array assembly.
+            let mut ulong_val = u64::from_le_bytes(d.to_le_bytes());
             if ulong_val < m {
                 ulong_val += m;
             }
-            returning.state[i] = ulong_val;
+            returning.state[i] = ulong_val as i128;
         }
         for _ in 0..10 {
             returning._randint();
@@ -46,25 +47,44 @@ impl LuaRandom {
 
     #[inline(always)]
     fn _randint(&mut self) -> u64 {
-        let mut z;
-        let mut r = 0u64;
-        z = self.state[0];
-        z = (((z << 31) ^ z) >> 45) ^ ((z & (u64::MAX << 1)) << 18);
-        r ^= z;
-        self.state[0] = z;
-        z = self.state[1];
-        z = (((z << 19) ^ z) >> 30) ^ ((z & (u64::MAX << 6)) << 28);
-        r ^= z;
-        self.state[1] = z;
-        z = self.state[2];
-        z = (((z << 24) ^ z) >> 48) ^ ((z & (u64::MAX << 9)) << 7);
-        r ^= z;
-        self.state[2] = z;
-        z = self.state[3];
-        z = (((z << 21) ^ z) >> 39) ^ ((z & (u64::MAX << 17)) << 8);
-        r ^= z;
-        self.state[3] = z;
-        r
+        // Emulate JS BigInt behavior using 128-bit intermediates.
+        let mask64: u128 = (1u128 << 64) - 1;
+        let mut r_acc: u128 = 0;
+        // Use arithmetic right shifts by interpreting as i64, matching JS BigInt >> behavior.
+        // State 0
+        let z0 = self.state[0] as u128;
+        let a0 = (((z0 << 31) ^ z0) as i128) >> 45; // arithmetic right shift
+        let b0 = a0 as u128;
+        let c0 = (z0 & ((mask64 << 1))) << 18;
+        let z = b0 ^ c0;
+        r_acc ^= z;
+        self.state[0] = z as i128;
+        // State 1
+        let z1 = self.state[1] as u128;
+        let a1 = (((z1 << 19) ^ z1) as i128) >> 30;
+        let b1 = a1 as u128;
+        let c1 = (z1 & ((mask64 << 6))) << 28;
+        let z = b1 ^ c1;
+        r_acc ^= z;
+        self.state[1] = z as i128;
+        // State 2
+        let z2 = self.state[2] as u128;
+        let a2 = (((z2 << 24) ^ z2) as i128) >> 48;
+        let b2 = a2 as u128;
+        let c2 = (z2 & ((mask64 << 9))) << 7;
+        let z = b2 ^ c2;
+        r_acc ^= z;
+        self.state[2] = z as i128;
+        // State 3
+        let z3 = self.state[3] as u128;
+        let a3 = (((z3 << 21) ^ z3) as i128) >> 39;
+        let b3 = a3 as u128;
+        let c3 = (z3 & ((mask64 << 17))) << 8;
+        let z = b3 ^ c3;
+        r_acc ^= z;
+        self.state[3] = z as i128;
+        // Return lower 64 bits like JS when extracting for double bits
+        (r_acc & mask64) as u64
     }
 
     #[inline(always)]
@@ -81,6 +101,76 @@ impl LuaRandom {
     pub fn randint(&mut self, min: i32, max: i32) -> i32 {
         let rand = self.random();
         (rand * (max - min + 1) as f64) as i32 + min
+    }
+
+    #[inline(always)]
+    pub fn debug_first_rand_bits(seed: f64) -> (u64, f64) {
+        let mut lr = LuaRandom::new(seed);
+        let bits = lr.randdblmem();
+        let val = f64::from_bits(bits) - 1.0;
+        (bits, val)
+    }
+
+    #[inline(always)]
+    pub fn debug_seed_states(seed: f64) -> [u64; 4] {
+        let lr = LuaRandom::new(seed);
+        [
+            (lr.state[0] as u128 & ((1u128<<64)-1)) as u64,
+            (lr.state[1] as u128 & ((1u128<<64)-1)) as u64,
+            (lr.state[2] as u128 & ((1u128<<64)-1)) as u64,
+            (lr.state[3] as u128 & ((1u128<<64)-1)) as u64,
+        ]
+    }
+
+    #[inline(always)]
+    pub fn debug_first_rand_steps(seed: f64) -> ([u128; 4], u128) {
+        // Recompute the exact steps of the first _randint pass for debugging
+        let mut lr = LuaRandom::new(seed);
+        let mask64: u128 = (1u128 << 64) - 1;
+        let mut r_acc: u128 = 0;
+        let mut zs: [u128; 4] = [0; 4];
+
+        // State 0
+        let z0 = lr.state[0] as u128;
+        let a0 = (((z0 << 31) ^ z0) as i128) >> 45;
+        let b0 = a0 as u128;
+        let c0 = (z0 & (mask64 << 1)) << 18;
+        let z = b0 ^ c0;
+        r_acc ^= z;
+        lr.state[0] = z as i128;
+        zs[0] = z;
+
+        // State 1
+        let z1 = lr.state[1] as u128;
+        let a1 = (((z1 << 19) ^ z1) as i128) >> 30;
+        let b1 = a1 as u128;
+        let c1 = (z1 & (mask64 << 6)) << 28;
+        let z = b1 ^ c1;
+        r_acc ^= z;
+        lr.state[1] = z as i128;
+        zs[1] = z;
+
+        // State 2
+        let z2 = lr.state[2] as u128;
+        let a2 = (((z2 << 24) ^ z2) as i128) >> 48;
+        let b2 = a2 as u128;
+        let c2 = (z2 & (mask64 << 9)) << 7;
+        let z = b2 ^ c2;
+        r_acc ^= z;
+        lr.state[2] = z as i128;
+        zs[2] = z;
+
+        // State 3
+        let z3 = lr.state[3] as u128;
+        let a3 = (((z3 << 21) ^ z3) as i128) >> 39;
+        let b3 = a3 as u128;
+        let c3 = (z3 & (mask64 << 17)) << 8;
+        let z = b3 ^ c3;
+        r_acc ^= z;
+        lr.state[3] = z as i128;
+        zs[3] = z;
+
+        (zs, r_acc)
     }
 }
 
@@ -126,8 +216,12 @@ pub fn round13(x: f64) -> f64 {
     let floored = floor(scaled);
     let tentative = floored / INV_PREC;
     let truncated = (x * TWO_INV_PREC) % 1.0 * FIVE_INV_PREC;
-    if tentative != x && tentative != nextafter(x, f64::INFINITY) && truncated % 1.0 >= 0.5 {
+    // JS uses a simplified nextAfter: x +/- Number.EPSILON. In Game.ts it's nextAfter(x, 1)
+    // which for 0<=x<=1 is always x + EPSILON.
+    let x_next = x + f64::EPSILON;
+    if tentative != x && tentative != x_next && truncated % 1.0 >= 0.5 {
         return (floored + 1.0) / INV_PREC;
     }
+
     tentative
 }

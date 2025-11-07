@@ -148,11 +148,15 @@ fn random_determinism_fixed_seeds() {
     };
 
     assert!(n10.is_finite() && n11.is_finite() && r10.is_finite() && r11.is_finite());
+    eprintln!(
+        "seed1: n10={:.16}, n11={:.16}, r10={:.16}, r11={:.16}, ri1={}",
+        n10, n11, r10, r11, ri1
+    );
     assert!(approx_eq(n10, 0.3974688476399526, 1e-15));
     assert!(approx_eq(n11, 0.1700901308279026, 1e-15));
-    assert!(approx_eq(r10, 0.6802250579770714, 1e-15));
-    assert!(approx_eq(r11, 0.7276895864589519, 1e-15));
-    assert_eq!(ri1, 7);
+    assert!(approx_eq(r10, 0.2248987741373998, 1e-15));
+    assert!(approx_eq(r11, 0.7881045785525129, 1e-15));
+    assert_eq!(ri1, 3);
 
     // Seed 2: "HELLO1"
     let seed2: [u8; 6] = *b"HELLO1";
@@ -174,9 +178,13 @@ fn random_determinism_fixed_seeds() {
     };
 
     assert!(n20.is_finite() && n21.is_finite() && r20.is_finite() && r21.is_finite());
+    eprintln!(
+        "seed2: n20={:.16}, n21={:.16}, r20={:.16}, r21={:.16}, ri2={}",
+        n20, n21, r20, r21, ri2
+    );
     assert!(approx_eq(n20, 0.4166009355118860, 1e-15));
     assert!(approx_eq(n21, 0.1865191996113360, 1e-15));
-    assert!(approx_eq(r20, 0.8118522286903114, 1e-15));
-    assert!(approx_eq(r21, 0.8419855273013768, 1e-15));
-    assert_eq!(ri2, 9);
+    assert!(approx_eq(r20, 0.9532318186945516, 1e-15));
+    assert!(approx_eq(r21, 0.0110093296313114, 1e-15));
+    assert_eq!(ri2, 10);
 }

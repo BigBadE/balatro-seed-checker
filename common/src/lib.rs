@@ -4,8 +4,11 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 pub mod deck;
-//pub mod items;
+pub mod items;
 //pub mod pools;
 pub mod random;
 //pub mod shop;
 pub mod util;
+pub mod game;
+pub mod names;
+pub mod lock;
